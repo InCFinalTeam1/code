@@ -1,0 +1,287 @@
+stages:
+  - build # Kaniko Image Build
+  - notify # Slack Notify
+  - test
+  - release # ECR Push Image
+  - scan # ECR Image Scanning
+  - deploy # Update Helm Chart
+
+variables:
+  ECR_REGISTRY: $ECR_REGISTRY
+  NAMESPACE: $NAMESPACE
+  ARGOCD_SERVER: $ARGOCD_SERVER
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+  MANIFEST_REPO: $MANIFEST_REPO
+  SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+
+# 빌드 단계 (Kaniko 사용)
+build_image:
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+
+  stage: build
+  script:
+    - echo "Building Docker image with Kaniko..."
+    - DATE_TAG=$(TZ="Asia/Seoul" date +%Y%m%d-%H%M%S)
+    - export DATE_TAG=$DATE_TAG
+    - echo $DATE_TAG > date_tag.txt
+
+    # AWS ECR 로그인 정보 설정
+    - echo "{\"credsStore\":\"ecr-login\"}" > /kaniko/.docker/config.json
+
+    # Kaniko를 사용하여 이미지 빌드 및 푸시
+    - mkdir -p /kaniko/build-context
+    - cp -r . /kaniko/build-context
+    - cd /kaniko/build-context
+
+    # kaniko로 Dockerfile 빌드하여 tar 파일로 저장 (--no-push 사용)
+    - /kaniko/executor --context=. --dockerfile=Dockerfile --no-push --tarPath=/kaniko/image.tar --destination=$ECR_REGISTRY:$DATE_TAG
+        
+    - ls -la /kaniko/
+    - echo "Image saved as tar file for later push"
+    - cp /kaniko/image.tar $CI_PROJECT_DIR/image.tar
+
+  only:
+    - main
+  artifacts:
+    paths:
+      - date_tag.txt
+      - /image.tar # 생성된 이미지를 직접 전달
+      
+# 슬랙 알림
+notify_slack:
+  stage: notify
+  image: curlimages/curl:latest  # ✅ curl이 포함된 공식 이미지 사용
+  script:
+    - echo "Sending Slack notification..."
+    - |
+      curl -X POST -H 'Content-type: application/json' --data '{
+        "channel": "#gitlab-notification",
+        "username": "GitLab",
+        "attachments": [
+          {
+            "color": "good",
+            "pretext": "Build Success",
+            "fields": [
+              {
+                "title": "Job Name",
+                "value": "'$CI_PROJECT_NAME'",
+                "short": true
+              },
+              {
+                "title": "Commit ID",
+                "value": "'$DATE_TAG'",
+                "short": true 
+              },
+              {
+                "title": "Image",
+                "value": "'$ECR_REGISTRY:$DATE_TAG'",
+                "short": false
+              }
+            ]
+          }
+        ]
+      }' $SLACK_WEBHOOK_URL
+  only:
+    - main
+
+.test_before_script:
+  before_script:
+    - apk add --no-cache python3 py3-pip yq git curl
+    - python3 -m venv /venv
+    - . /venv/bin/activate
+    - pip install awscli
+    - apk update
+
+# 테스트 단계
+test_image:
+  stage: test
+  image: python:3.9  # Kaniko가 아닌 Python 컨테이너에서 직접 실행
+  script:
+    - echo "Running tests inside CI/CD pipeline..."
+    - pip install -r requirements.txt
+    - pytest test/
+  only:
+    - main 
+
+# sonarqube 검증
+sonarqube-check:
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  before_script: [] 
+  script: 
+    - sonar-scanner
+  allow_failure: true
+  only:
+    - main
+
+release_image:
+  stage: release
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - echo "Pushing Docker image to ECR after successful tests..."
+    - DATE_TAG=$(cat date_tag.txt)
+    
+    # AWS ECR 로그인 정보 설정
+    - echo "{\"credsStore\":\"ecr-login\"}" > /kaniko/.docker/config.json
+    
+    # 방법 2: 두 번째 빌드를 하고 캐시 사용하여 푸시
+    - |
+      /kaniko/executor \
+        --context=. \
+        --dockerfile=Dockerfile \
+        --destination=$ECR_REGISTRY:$DATE_TAG \
+        --destination=$ECR_REGISTRY:latest
+        
+  only:
+    - main
+
+# ECR Image Scanning 단계
+scan_image:
+  extends: .test_before_script
+  stage: scan
+  image: alpine:latest
+  script:
+    - echo "Starting ECR Image vulnerability scanning..."
+    - DATE_TAG=$(cat date_tag.txt)
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set region $AWS_DEFAULT_REGION
+    - echo "Starting scan for image"
+    - aws ecr start-image-scan --repository-name main_service --image-id imageTag=$DATE_TAG
+    - echo "Waiting for scan to complete..."
+    - |
+      MAX_ATTEMPTS=30
+      ATTEMPT=0
+      SCAN_STATUS="IN_PROGRESS"
+      
+      while [ "$SCAN_STATUS" = "IN_PROGRESS" ] && [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+        sleep 10
+        ATTEMPT=$((ATTEMPT+1))
+        SCAN_RESULT=$(aws ecr describe-image-scan-findings --repository-name main_service --image-id imageTag=$DATE_TAG)
+        SCAN_STATUS=$(echo $SCAN_RESULT | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+        echo "Scan status: $SCAN_STATUS (Attempt $ATTEMPT of $MAX_ATTEMPTS)"
+      done
+    - |
+      if [ "$SCAN_STATUS" = "COMPLETE" ]; then
+        echo "Scan completed successfully."
+        # 취약점 결과 출력
+        FINDINGS=$(echo $SCAN_RESULT | grep -o '"findingSeverityCounts": {[^}]*}' || echo "No findings")
+        echo "Scan findings: $FINDINGS"
+        
+        # 높은 심각도 취약점 개수 확인
+        HIGH_COUNT=$(echo $SCAN_RESULT | grep -o '"HIGH": [0-9]*' | cut -d' ' -f2 || echo "0")
+        CRITICAL_COUNT=$(echo $SCAN_RESULT | grep -o '"CRITICAL": [0-9]*' | cut -d' ' -f2 || echo "0")
+        
+        echo "High severity vulnerabilities: $HIGH_COUNT"
+        echo "Critical severity vulnerabilities: $CRITICAL_COUNT"
+        
+        # 슬랙 알림 보내기
+        curl -X POST -H 'Content-type: application/json' --data '{
+          "channel": "#gitlab-notification",
+          "username": "Security Scanner",
+          "attachments": [
+            {
+              "color": "warning",
+              "pretext": "Security Scan Results",
+              "fields": [
+                {
+                  "title": "Image",
+                  "value": "'$ECR_REGISTRY:$DATE_TAG'",
+                  "short": true
+                },
+                {
+                  "title": "High Vulnerabilities",
+                  "value": "'$HIGH_COUNT'",
+                  "short": true
+                },
+                {
+                  "title": "Critical Vulnerabilities",
+                  "value": "'$CRITICAL_COUNT'",
+                  "short": true
+                }
+              ]
+            }
+          ]
+        }' $SLACK_WEBHOOK_URL
+        
+        # Critical 취약점이 있을 경우 선택적으로 파이프라인 실패 처리
+        if [ "$CRITICAL_COUNT" -gt 0 ]; then
+          echo "Critical vulnerabilities detected. Consider fixing them before deployment."
+          # 아래 줄 주석을 해제하면 중요 취약점 발견 시 파이프라인 실패 처리
+          # exit 1
+        fi
+      else
+        echo "Scan did not complete within the expected time or failed."
+        echo "Last scan status: $SCAN_STATUS"
+      fi
+  only:
+    - main
+  allow_failure: true  # 취약점이 있어도 파이프라인을 계속 진행 (필요에 따라 변경 가능)
+
+# 배포 단계
+deploy_to_argocd:
+  extends: .test_before_script
+  stage: deploy
+  script:
+    - echo "Updating ArgoCD manifests..."
+    # 매니페스트 레포지토리 클론
+    - export DATE_TAG=$(cat date_tag.txt)
+    - git clone $MANIFEST_REPO test-new
+    - cd test-new
+    - cd streamlit-manifest
+    - cd app-helm
+
+    # Kubernetes 매니페스트 업데이트
+    - yq e '.image.tag = "'$DATE_TAG'"' -i values.yaml
+    # Git 설정 및 커밋
+    - git config --global user.email "ci@gitlab.com"
+    - git config --global user.name "CI/CD Pipeline"
+    - git add values.yaml
+    - git commit -m "Update image to $DATE_TAG" || echo "No changes to commit."
+    # 변경 사항 푸시
+    - git pull --rebase origin master
+    - git push origin master
+    - |
+      curl -X POST -H 'Content-type: application/json' --data '{
+        "channel": "#gitlab-notification",
+        "username": "GitLab",
+        "attachments": [
+          {
+            "color": "good",
+            "pretext": "Manifest file changed",
+            "fields": [
+              {
+                "title": "Job Name",
+                "value": "'$CI_PROJECT_NAME'",
+                "short": true
+              },
+              {
+                "title": "Commit ID",
+                "value": "'$DATE_TAG'",
+                "short": true 
+              },
+              {
+                "title": "Image",
+                "value": "'$ECR_REGISTRY:$DATE_TAG'",
+                "short": false
+              }
+            ]
+          }
+        ]
+      }' $SLACK_WEBHOOK_URL
+  only: 
+    - main

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="icon" href="/static/image/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        .login-container {
+            width: 300px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .login-container h2 {
+            margin-bottom: 20px;
+        }
+
+        .fancy-title {
+            font-family: 'Dancing Script', cursive;
+            font-size: 2.5em;
+            text-align: center;
+            color: #333;
+        }
+
+        .login-container input[type="text"],
+        .login-container input[type="password"],
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .login-container button {
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .login-container button:hover {
+            background-color: #333;
+        }
+
+        .signup-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        .signup-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <script>
+                alert("{{ messages[0] }}");
+            </script>
+        {% endif %}
+    {% endwith %}
+    <div class="login-container">
+        <h2 class="fancy-title">login</h2>
+        <form action="/user/login" method="post" onsubmit="setDefaultCheckboxValue()">
+            <input type="text" name="username" placeholder="아이디" required>
+            <input type="password" name="password" placeholder="비밀번호" required>
+            <!-- 인플루언서 여부 체크박스 -->
+            <div class="checkbox-group">
+                <input type="checkbox" id="influencerCheck" name="is_influencer" value="yes">
+                <label for="influencerCheck">인플루언서 여부</label>
+            </div>
+            <!-- 기본값 no 전달을 위한 hidden input -->
+            <input type="hidden" name="is_influencer" value="no">
+            <button type="submit">로그인</button>
+        </form>
+        <button class="signup-button" onclick="location.href='/user/signup'">회원가입</button>
+        <button onclick="location.href='/user/find_pw'"><center><font size=2>비밀번호 찾기</font></center></button>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <script>
+                    alert("{{ messages[0] }}");  // 첫 번째 메시지를 alert로 표시
+                </script>
+            {% endif %}
+        {% endwith %}
+    </div>
+    <script>
+        function setDefaultCheckboxValue() {
+            const checkbox = document.getElementById('influencerCheck');
+            const hiddenInput = document.getElementById('influencerHidden');
+
+            // 체크박스가 체크되어 있으면 hidden input의 값을 제거
+            if (checkbox.checked) {
+                hiddenInput.disabled = true; // 서버로 전달되지 않도록 비활성화
+            } else {
+                hiddenInput.disabled = false; // 체크 안되었으면 기본값 no 전달
+            }
+        }
+    </script>
+</body>
+</html>

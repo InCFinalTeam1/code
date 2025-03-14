@@ -1,0 +1,27 @@
+<div class="modal fade" id="purchaseModal{{ product.product_id | replace(' ', '_') }}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">상품 구매</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <h5>{{ product.product_id }}</h5>
+                <img src="{{ product.image_path }}" class="img-fluid mb-3" alt="상품 이미지">
+                <p>가격: {{ product.price }}</p>
+                <p>{{ product.description }}</p>
+                <!-- 추가적인 구매 정보 입력 폼을 넣을 수도 있습니다. -->
+                <form action="/bucket/add_cart" method="POST">
+                    <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                    <div class="form-group">
+                        <label for="quantity_{{ product.product_id }}">수량</label>
+                        <input type="number" class="form-control" id="quantity_{{ product.product_id }}" name="quantity" value="1" min="1">
+                    </div>
+                    <button type="submit" class="btn btn-primary">장바구니 추가</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

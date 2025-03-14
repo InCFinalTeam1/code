@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>Home</title>
+        <link rel="icon" href="/static/image/favicon.png">
+        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+        <!-- Font Awesome 아이콘 추가 -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+        <style>
+            body, ul, li {
+            margin:0;
+            padding:0;
+            list-style:none;
+        }
+
+        .slider-2 {
+            height:400px;
+            position:relative;
+        }
+
+        .slider-2 .slides > div {
+            position:absolute;
+            top:0;
+            left:0;
+            width:100%;
+            height:100%;
+            background-position:center;
+            /* 이미지를 최대한 안짤리게 한다. */
+            background-size:contain;
+            /* 배경 반복 금지 */
+            background-repeat:no-repeat;
+            opacity:0;
+            transition: opacity 0.5s;
+        }
+
+        .slider-2 .slides > div.active {
+            opacity:1;
+        }
+
+        @media ( max-width:700px ) {
+            .slider-2 {
+                height:300px;
+            }
+        }
+
+        .slider-2 .page-nav {
+            position:absolute;
+            width:100%;
+            text-align:center;
+            bottom:0;
+            left:0;
+        }
+
+        .slider-2 .page-nav > div {
+            display:inline-block;
+            width:15px;
+            height:15px;
+            background-color:rgba(255,255,255,0.5);
+            border-radius:2px;
+            cursor:pointer;
+        }
+
+        .slider-2 .page-nav > div.active {
+            background-color:rgba(255,255,255,1);
+        }
+
+        .slider-2>.side-btns>div{
+            position:absolute;
+            top:0;
+            left:0;
+            width:30%;
+            height:100%;
+            cursor:pointer;
+            z-index:10;
+
+        }
+
+        .slider-2>.side-btns>div>span:active{
+            transform:translatey(-40%);
+        }
+        .slider-2>.side-btns>div:last-child{
+            left:auto;
+            right:0;
+        }
+
+        .slider-2>.side-btns>div>span{
+            position:absolute;
+            top:50%;
+            transform:translatey(-50%);
+            left:inherit;
+            right:inherit;
+            width:70px;
+            height:70px;
+            background-color:rgba(255,255,255,0.4);
+            border-radius:100%;
+            margin:0 10px;
+        }
+        .slider-2>.side-btns>div>span > i{
+            position:absolute;
+            top:50%;
+            left:50%;
+            font-size:3rem;
+            color:rgba(0,0,0,0.4);
+            transform:translateX(-70%) translateY(-50%);
+        }
+
+        .slider-2>.side-btns>div:last-child>span > i {
+            transform:translateX(-20%) translateY(-50%);
+        }
+        </style>
+    </head>
+    
+<body>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    {% include 'navigator.html' %}
+    <div class="container mt-5">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <script>
+                    alert("{{ messages[0] }}");
+                </script>
+            {% endif %}
+        {% endwith %}
+
+        <div class="text-center mb-4">
+            <button class="btn btn-secondary filter-btn" data-category="all">전체</button>
+            {% for category in categories %}
+                <button class="btn btn-secondary filter-btn" data-category="{{ category.category_id }}">{{ category.category_id }}</button>
+            {% endfor %}
+        </div>
+
+        <li class="nav-item">
+            <form class="d-flex align-items-center" action="{{ url_for('main.search') }}" method="get" onsubmit="return checkSearchQuery();" style="max-width: 600px; margin: 0 auto;">
+                <input type="hidden" name="client_id" value="{{ client_id }}">
+                <div class="input-group">
+                    <input 
+                        class="form-control rounded-left" 
+                        type="search" 
+                        placeholder="검색할 상품을 입력하세요" 
+                        aria-label="Search" 
+                        name="query" 
+                        id="searchQuery" 
+                        style="box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);">
+                    <div class="input-group-append">
+                        <button class="btn btn-success" type="submit" style="box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);">검색</button>
+                    </div>
+                </div>
+            </form>
+        </li>
+
+        <div class="slider-2 mt-5">
+            <div class="side-btns">
+                <div><span><i class="fas fa-caret-left"></i></span></div>
+                <div><span><i class="fas fa-caret-right"></i></span></div>
+            </div>
+            <div class="slides">
+                {% for image in slider_images %}
+                    <div {% if loop.first %}class="active"{% endif %} style="background-image:url({{ image }});"></div>
+                {% endfor %}
+            </div>
+            <div class="page-nav">
+                {% for _ in slider_images %}
+                    <div {% if loop.first %}class="active"{% endif %}></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            {% for product in products %}
+            <div class="col-lg-3 col-md-6 mb-4 product-card" data-category="{{ product.product_id | replace(' ', '_') }}">
+                <div class="card h-100">
+                    <img src="{{ product.image_path }}" class="card-img-top" alt="상품 이미지">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.product_id }}</h5>
+                        <p class="card-text"> 가격 : {{ int(product.price) }} 원</p>
+                        <p class="card-text">{{ product.description }}</p>
+                        <a href="#" class="btn btn-primary" data-toggle="modal" data-target="#purchaseModal{{ product.product_id | replace(' ', '_') }}">구매하기</a>
+                    </div>
+                </div>
+            </div>
+            <script>
+
+                // console.log("이미지 경로:", "{{ product.product_id | replace(' ', '_') }}");
+                console.log("이미지 경로:", "{{ product.image_path }}");
+            </script>
+            {% endfor %}
+
+        </div>
+        <nav aria-label="Page navigation example">
+            <ul class="pagination justify-content-center flex-wrap">
+                {% if page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.search', page=page-1, query=request.args.get('query')) }}">Previous</a>
+                    </li>
+                {% endif %}
+                {% for p in pages %}
+                    {% if p == '...' %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% else %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('main.search', client_id=client_id, page=p, query=request.args.get('query')) }}">{{ p }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                {% if page < total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.search',client_id=client_id, page=page+1, query=request.args.get('query')) }}">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        <!-- 모달 포함 -->
+        {% for product in products %}
+            {% include 'product_modal.html' %}
+        {% endfor %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.filter-btn').on('click', function() {
+                const selectedCategory = $(this).data('category');
+                
+                if (selectedCategory === 'all') {
+                    // 전체 보기: 모든 제품 카드 표시
+                    $('.product-card').show();
+                } else {
+                    // 선택된 카테고리에 맞는 제품 카드만 표시
+                    $('.product-card').hide(); // 먼저 모두 숨기기
+                    $(`.product-card[data-category="${selectedCategory}"]`).show(); // 선택된 카테고리만 표시
+                }
+            });
+        });
+    
+        // 슬라이더 JavaScript 추가
+        $('.slider-2 .page-nav > div').click(function() {
+            var $this = $(this);
+            var $pagenav = $this.parent()
+            var $current = $pagenav.find('.active');
+
+            $current.removeClass('active');
+            $this.addClass('active');
+
+            var index = $this.index();
+            var $슬라이더 = $this.closest('.slider-2');
+
+            $슬라이더.find('.slides > div.active').removeClass('active');
+            $슬라이더.find('.slides > div').eq(index).addClass('active');
+        });
+
+        $('.slider-2 > .side-btns > div:first-child').click(function() {
+            var $this = $(this);
+            var $slider = $this.closest('.slider-2');
+
+            var $current = $slider.find('.page-nav > div.active');
+            var $post = $current.prev();
+
+            if ( $post.length == 0 ) {
+                $post = $slider.find('.page-nav > div:last-child');
+            }
+
+            $post.click();
+        });
+
+        $('.slider-2 > .side-btns > div:last-child').click(function() {
+            var $this = $(this);
+            var $slider = $this.closest('.slider-2');
+
+            var $current = $slider.find('.page-nav > div.active');
+            var $post = $current.next();
+
+            if ( $post.length == 0 ) {
+                $post = $slider.find('.page-nav > div:first-child');
+            }
+
+            $post.click();
+        });
+        function previewImage(event) {
+            var reader = new FileReader();
+            reader.onload = function() {
+                var img = document.getElementById("preview");
+                img.src = reader.result;
+            };
+            if (event.target.files.length > 0) {
+                reader.readAsDataURL(event.target.files[0]);
+            } else {
+                document.getElementById("preview").src = "/static/image/default-profile.png";
+            }
+        }
+        </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    </body>
+</html>
+

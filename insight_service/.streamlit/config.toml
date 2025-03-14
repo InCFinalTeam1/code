@@ -1,0 +1,29 @@
+# .streamlit/config.toml
+
+[browser]
+gatherUsageStats = false
+
+[server]
+enableCORS = true
+enableXsrfProtection = false
+baseUrlPath = "analyze"
+
+[theme]
+base = "light"
+primaryColor = "#333333"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f8f9fa"
+textColor = "#333333"
+font = "sans serif"
+
+[ui]
+hideTopBar = true
+hideSidebarNav = true
+
+[deprecation]
+showPyplotGlobalUse = false
+
+[global]
+# 최대 너비를 100%로 설정하여 좌우 꽉 차게 만듭니다
+disableWidescreenMode = false
+layout = "wide"

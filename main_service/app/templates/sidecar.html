@@ -1,0 +1,147 @@
+<li class="nav-item">
+    <!-- 사이드바 열기 버튼 추가 -->
+    <button id="openSidebarBtn" class="btn btn-outline-primary" data-client-id="{{ client_id }}">
+        고객사 대화창
+    </button>
+</li>
+
+<!-- 사이드바 -->
+<div id="sidebar" class="sidebar" >
+    <button id="closeSidebarBtn" class="close-btn">&times;</button>
+    
+    <h3>고객사별 대화창</h3>
+        <div class="chat-container mt-4">
+            <div class="chat-header">
+                <h6 id="chat-client-title"></h6>
+            </div>
+        <div class="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;"></div>
+        <div class="input-group mt-2">
+            <input type="text" id="chat-input" class="form-control" placeholder="메시지 입력">
+            <div class="input-group-append">
+                <button class="btn btn-primary" id="send-chat">전송</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
+<script>
+    const socket = io();
+    $(document).ready(function () {
+        let currentRoom = null;
+
+        // 사이드바 열기 버튼 동작 추가
+        $('#openSidebarBtn').on('click', function () {
+            const client_id = $(this).data('client-id');
+            // console.log("클라이언트 아이디:", $(this).data('client-id'));
+            $('#sidebar').css('width', '300px'); // 사이드바 너비 설정
+            $('#chat-client-title').text(`${client_id} 채팅방`);
+            $('.chat-container').show();
+            currentRoom = client_id
+
+            // WebSocket으로 방 참여 알림
+            socket.emit('join', { room: client_id });
+        });
+
+        // 사이드바 닫기 버튼 동작 추가
+        $('#closeSidebarBtn').on('click', function () {
+            // 기존 방에서 나가기
+            if (currentRoom) {
+                socket.emit('leave', { room: currentRoom });
+                $('.chat-messages').empty(); // 이전 메시지 초기화
+            }
+            $('#sidebar').css('width', '0'); // 사이드바 너비를 0으로 설정
+        });
+
+        // // 메시지 전송
+        // $('#send-chat').on('click', function () {
+        //     const message = $('#chat-input').val();
+        //     console.log(message,currentRoom);
+        //     if (message.trim() !== '') {
+        //         // WebSocket으로 메시지 전송
+        //         socket.emit('message', { room: currentRoom, message: message });
+        //         $('#chat-input').val('');
+        //     }
+        // });
+        $('#send-chat').on('click', function () {
+            sendMessage();
+        });
+
+        $('#chat-input').on('keydown', function (event) {
+            if (event.key === 'Enter' && !event.shiftKey) { // Shift+Enter는 줄바꿈 허용
+                event.preventDefault(); // 기본 Enter 동작 방지
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const message = $('#chat-input').val().trim();
+            if (message !== '') {
+                console.log(message, currentRoom);
+                // WebSocket으로 메시지 전송
+                socket.emit('message', { room: currentRoom, message: message });
+                $('#chat-input').val('');
+            }
+        }
+
+    
+        // WebSocket으로 받은 메시지 표시
+        socket.on('message', function (data) {
+            $('.chat-messages').append(`<div class="chat-message"><strong>${data.user}:</strong> ${data.message}</div>`);
+            $('.chat-messages').scrollTop($('.chat-messages')[0].scrollHeight);
+        });
+
+        // 방 상태 업데이트
+        socket.on('status', function (data) {
+            $('.chat-messages').append(`<div class="chat-message"><em>${data.msg}</em></div>`);
+            $('.chat-messages').scrollTop($('.chat-messages')[0].scrollHeight);
+        });
+
+    });
+</script>
+<style>
+    /* 사이드바 스타일 */
+    .sidebar {
+        height: 100%;
+        width: 0;
+        position: fixed;
+        z-index: 1000;
+        top: 0;
+        right: 0;
+        background-color: #f8f9fa;
+        overflow-x: hidden;
+        transition: 0.5s;
+        padding-top: 20px;
+        border-left: 1px solid #ddd;
+    }
+
+    /* 사이드바 닫기 버튼 */
+    .close-btn {
+        font-size: 36px;
+        color: #333;
+        border: none;
+        background: none;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+
+    /* 사이드바 내용 */
+    .sidebar h3 {
+        text-align: center;
+    }
+
+    .chat-container {
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+    }
+
+    .chat-message {
+        margin-bottom: 10px;
+    }
+
+    .chat-message strong {
+        color: #007bff;
+    }
+</style>

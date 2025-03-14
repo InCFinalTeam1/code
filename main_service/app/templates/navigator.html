@@ -1,0 +1,104 @@
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="{{ url_for('influ.influ',client_id=client_id ) }}">
+        <img src="{{ url_for('static', filename='image/logo.png') }}" alt="쇼핑몰 로고">
+    </a>        
+    {% if 'login_info' in session %}
+        <span class="username-style ml-3">{{ "안녕하세요 " + session['login_info'].get('username') + " 님" }}</span>
+    {% endif %}
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+            {% if 'login_info' in session %}
+                {% if session['login_info'].get('username') == "admin" %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_client') }}">고객사 관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_user') }}">사용자 관리</a>
+                    </li>
+                    <!-- <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_product') }}">상품 관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_order') }}">주문 관리</a>
+                    </li> -->
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('bucket.bucket') }}">장바구니</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('bucket.mypage') }}">마이페이지</a>
+                    </li>
+                {% endif %}
+            {% endif %}
+            <li class="nav-item">
+                {% if 'login_info' in session %}
+                    <a class="nav-link" href="{{ auth_userservice_url }}/user/logout">로그아웃</a>
+                {% else %}
+                    <a class="nav-link" href="{{ auth_userservice_url }}/user/login">로그인</a>
+                {% endif %}
+            </li>
+            
+            {% if 'login_info' in session %}
+                <!-- 사이드바 -->
+                {% include 'sidecar.html' %}
+            {% endif %}
+        </ul>
+    </div>
+</div>
+</nav>
+
+<style>
+    /* 상품 카드 이미지 크기 조정 */
+    .card-img-top {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+
+    /* 필기체 스타일 추가 */
+    .fancy-title {
+        font-size: 2.5em;
+        text-align: center;
+        color: #333;
+    }
+
+    /* 내비게이션 링크 스타일 */
+    .navbar-nav .nav-link {
+        font-family: 'Nanum Pen Script', cursive;
+        color: #333;
+        font-size: 24px;
+    }
+
+    /* 유저 이름 스타일 */
+    .username-style {
+        font-size: 30px; /* 유저 이름 크기 */
+        font-weight: bold; /* 두껍게 설정 */
+        color: #555; /* 유저 이름 색상 */
+    }
+
+    /* 카드 본문 패딩 추가 */
+    .card-body {
+        padding: 1rem;
+        text-align: center;
+    }
+
+    /* 로고 크기 조정 */
+    .navbar-brand img {
+        width: 100px;
+        height: auto;
+    }
+
+    .btn-primary {
+        background-color: #333;
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #555;
+    }
+</style>

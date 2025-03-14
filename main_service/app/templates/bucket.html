@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>장바구니</title>
+    <link rel="icon" href="/static/image/favicon.png">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+</head>
+<style>
+    img {
+        width: 150px; /* 원하는 너비 */
+        height: 150px; /* 원하는 높이 */
+        object-fit: cover; /* 이미지 비율 유지 */
+    }
+</style>
+<body>
+
+    {% include 'navigator.html' %}
+
+    <div class="container mt-5">
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <script>
+                    alert("{{ messages[0] }}");
+                </script>
+            {% endif %}
+        {% endwith %}
+
+        <h1 class="text-center">장바구니</h1>
+
+        {% if cart_items %}
+        <table class="table table-striped cart-table">
+            <thead>
+                <tr>
+                    <th scope="col">상품 이미지</th>
+                    <th scope="col">상품 이름</th>
+                    <th scope="col">가격</th>
+                    <th scope="col">수량</th>
+                    <th scope="col">총합</th>
+                    <th scope="col">삭제</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td><img src="{{ item.image_path }}" alt="상품 이미지"></td>
+                    <td>{{ item.product_name }}</td>
+                    <td>{{ item.price }} 원</td>
+                    <td>
+                        <form action="/bucket/add_cart" method="POST" style="display: inline;">
+                            <input type="hidden" name="product_id" value="{{ item.product_name }}">
+                            <input type="number" name="quantity" value="{{ item.quantity }}" min="1" class="form-control" style="width: 80px; display: inline;">
+                            <button type="submit" class="btn btn-primary btn-sm">변경</button>
+                        </form>
+                    </td>
+                    <td>{{ item.price * item.quantity }} 원</td>
+                    <td>
+                        <form action="/bucket/remove_from_cart" method="POST" style="display:inline;">
+                            <input type="hidden" name="product_id" value="{{ item.product_name }}">
+                            <button type="submit" class="btn btn-danger remove-btn">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="text-right">
+            <h4>총 합계: {{ total_price }} 원</h4>
+            <form action="/bucket/checkout" method="POST">
+                <input type="hidden" name="cart_items" value="{{ cart_items }}"> <!-- 장바구니 데이터 전달 -->
+                <input type="hidden" name="total_price" value="{{ total_price }}"> <!-- 총 가격 전달 -->
+                <button type="submit" class="btn btn-primary">결제하기</button>
+            </form>
+        </div>
+        
+        {% else %}
+        <p class="text-center">장바구니가 비었습니다.</p>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</body>
+</html>
